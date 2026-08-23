@@ -55,10 +55,19 @@ orderEvents.on("statusChanged", async (orderId: string, toStatus: string) => {
         console.log(`[SMS MOCK] To: ${phone} | Body: LastMile: Your order ${order.id} is now ${toStatus}.`);
       } else {
         const twilioClient = require('twilio')(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+        
+        // Strip all non-numeric characters (spaces, dashes, parentheses)
+        const cleanTo = phone.replace(/[^\d]/g, '');
+        const cleanFrom = TWILIO_PHONE_NUMBER.replace(/[^\d]/g, '');
+        
+        // Add +91 if it's a 10-digit Indian number, otherwise just add +
+        const finalTo = cleanTo.length === 10 ? `+91${cleanTo}` : `+${cleanTo}`;
+        const finalFrom = `+${cleanFrom}`;
+
         await twilioClient.messages.create({
           body: `LastMile: Your shipment ${order.id} is now ${toStatus}.`,
-          from: TWILIO_PHONE_NUMBER,
-          to: phone
+          from: finalFrom,
+          to: finalTo
         });
         console.log(`[SMS SENT] To: ${phone} -> ${toStatus}`);
       }
