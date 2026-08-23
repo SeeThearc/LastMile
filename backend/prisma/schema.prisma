@@ -1,0 +1,194 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  AGENT
+  ADMIN
+}
+
+enum AgentAvailability {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum OrderType {
+  B2B
+  B2C
+}
+
+enum PaymentType {
+  PREPAID
+  COD
+}
+
+enum OrderStatus {
+  CREATED
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RESCHEDULED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+
+  role UserRole
+
+  availability  AgentAvailability?
+  currentZoneId String?
+  currentZone   Zone?              @relation("AgentZone", fields: [currentZoneId], references: [id])
+
+  customerOrders Order[]         @relation("CustomerOrders")
+  agentOrders    Order[]         @relation("AgentOrders")
+  trackingEvents TrackingEvent[]
+  auditLogs      AdminAuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Zone {
+  id   String @id @default(cuid())
+  name String @unique
+
+  areas        Area[]
+  agents       User[]    @relation("AgentZone")
+  pickupOrders Order[]   @relation("PickupZone")
+  dropOrders   Order[]   @relation("DropZone")
+  ratecards    RateCard[]
+  etaFrom      ZoneETA[] @relation("ETAFrom")
+  etaTo        ZoneETA[] @relation("ETATo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Area {
+  id      String  @id @default(cuid())
+  name    String  @unique
+  pincode String?
+
+  zoneId String
+  zone   Zone   @relation(fields: [zoneId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model RateCard {
+  id          String    @id @default(cuid())
+  zoneId      String
+  zone        Zone      @relation(fields: [zoneId], references: [id])
+  orderType   OrderType
+  isIntraZone Boolean
+  ratePerKg   Float
+  codSurcharge Float    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([zoneId, orderType, isIntraZone])
+}
+
+model ZoneETA {
+  id         String @id @default(cuid())
+  fromZoneId String
+  fromZone   Zone   @relation("ETAFrom", fields: [fromZoneId], references: [id])
+  toZoneId   String
+  toZone     Zone   @relation("ETATo", fields: [toZoneId], references: [id])
+  etaMinutes Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fromZoneId, toZoneId])
+}
+
+model Order {
+  id             String  @id @default(cuid())
+  idempotencyKey String? @unique
+
+  customerId String
+  customer   User   @relation("CustomerOrders", fields: [customerId], references: [id])
+
+  agentId String?
+  agent   User?   @relation("AgentOrders", fields: [agentId], references: [id])
+
+  pickupAddress String
+  dropAddress   String
+  pickupArea    String
+  dropArea      String
+
+  pickupZoneId String
+  pickupZone   Zone   @relation("PickupZone", fields: [pickupZoneId], references: [id])
+  dropZoneId   String
+  dropZone     Zone   @relation("DropZone", fields: [dropZoneId], references: [id])
+
+  length       Float
+  breadth      Float
+  height       Float
+  actualWeight Float
+
+  orderType   OrderType
+  paymentType PaymentType
+
+  status OrderStatus @default(CREATED)
+
+  volumetricWeight Float
+  billableWeight   Float
+  ratePerKg        Float
+  baseCharge       Float
+  codSurcharge     Float
+  totalCharge      Float
+
+  estimatedDeliveryAt DateTime?
+  scheduledAt         DateTime?
+
+  trackingEvents TrackingEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrackingEvent {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  actorRole UserRole
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AdminAuditLog {
+  id         String @id @default(cuid())
+  adminId    String
+  admin      User   @relation(fields: [adminId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  details    String
+
+  createdAt DateTime @default(now())
+}
