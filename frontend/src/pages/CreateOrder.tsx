@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PackageOpen, MapPin, Scale, Navigation, DollarSign, Clock } from 'lucide-react';
 import SlideToConfirm from '../components/SlideToConfirm';
+import { toast } from 'react-hot-toast';
+import Button from '../components/Button';
 
 export default function CreateOrder() {
   const navigate = useNavigate();
@@ -43,20 +45,17 @@ export default function CreateOrder() {
       const token = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/preview`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate preview');
+      if (!res.ok) throw new Error(data.error);
 
       setPreview(data);
       setStep(2);
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || 'Failed to generate preview');
     } finally {
       setLoading(false);
     }
@@ -84,19 +83,20 @@ export default function CreateOrder() {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
         method: 'POST',
         headers: { 
+          'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
           'Idempotency-Key': idempotencyKey
         },
         body: JSON.stringify(payload)
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create order');
+      if (!res.ok) throw new Error(data.error);
 
+      toast.success('Order placed successfully!');
       navigate('/dashboard');
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message || 'Failed to place order');
     } finally {
       setLoading(false);
     }
@@ -187,9 +187,9 @@ export default function CreateOrder() {
                 </div>
 
                 {step === 1 && (
-                  <button type="submit" disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl shadow-md transition-all">
-                    {loading ? 'Calculating...' : 'Preview Pricing & ETA'}
-                  </button>
+                  <Button type="submit" isLoading={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3">
+                    Preview Pricing & ETA
+                  </Button>
                 )}
               </form>
             </div>

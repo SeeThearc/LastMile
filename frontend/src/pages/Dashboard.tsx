@@ -1,21 +1,29 @@
 import { useState, useEffect } from 'react';
 import { Package, MapPin, Clock, AlertCircle, CalendarClock, CheckCircle2, Truck, Box } from 'lucide-react';
+import Button from '../components/Button';
+import { toast } from 'react-hot-toast';
 
 export default function Dashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
-      if (res.ok) setOrders(data.orders);
-    } catch (err) {
-      console.error(err);
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.orders);
+        if (data.orders.length > 0 && !selectedOrder) {
+          fetchOrderDetail(data.orders[0].id);
+        }
+      }
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -25,17 +33,20 @@ export default function Dashboard() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
-      if (res.ok) setSelectedOrder(data.order);
-    } catch (err) {
-      console.error(err);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedOrder(data.order);
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const handleReschedule = async () => {
     if (!selectedOrder) return;
+    setRescheduling(true);
     
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -48,18 +59,20 @@ export default function Dashboard() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ scheduledAt: tomorrow.toISOString() })
+        body: JSON.stringify({ preferredSlot: tomorrow.toISOString() })
       });
       if (res.ok) {
-        alert('Order rescheduled successfully!');
+        toast.success('Order rescheduled successfully!');
         fetchOrderDetail(selectedOrder.id);
         fetchOrders();
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to reschedule');
+        toast.error(data.error || 'Failed to reschedule');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      toast.error('Network Error');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -85,28 +98,29 @@ export default function Dashboard() {
     <div className="max-w-6xl mx-auto h-[calc(100vh-10rem)] flex gap-6">
       
       <div className="w-1/3 flex flex-col gap-4 overflow-y-auto px-2 -mx-2 custom-scrollbar">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2 pl-2">My Shipments</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2 pl-2 animate-fade-in-up">My Shipments</h2>
         
-        {loading && <div className="text-slate-500 pl-2">Loading tracking data...</div>}
+        {loading && <div className="text-slate-500 pl-2 animate-fade-in-up">Loading tracking data...</div>}
         
         {!loading && orders.length === 0 && (
-          <div className="glass-panel p-6 rounded-3xl text-center text-slate-500 mx-2">
+          <div className="glass-panel p-6 rounded-3xl text-center text-slate-500 mx-2 animate-fade-in-up">
             No active shipments found.
           </div>
         )}
 
-        {orders.map(order => {
+        {orders.map((order, index) => {
+          const isSelected = selectedOrder?.id === order.id;
           const config = getStatusConfig(order.status);
           const Icon = config.icon;
-          const isSelected = selectedOrder?.id === order.id;
-
+          
           return (
             <div 
               key={order.id} 
               onClick={() => fetchOrderDetail(order.id)}
-              className={`cursor-pointer transition-all duration-300 p-5 rounded-3xl border-2 ${
-                isSelected ? 'border-brand-500 shadow-md bg-white' : 'border-transparent glass hover:bg-white/90'
+              className={`cursor-pointer transition-all duration-300 p-5 rounded-3xl border-2 animate-fade-in-up hover:scale-[1.02] hover:-translate-y-1 hover:shadow-lg ${
+                isSelected ? 'border-brand-500 shadow-xl bg-white' : 'border-transparent glass hover:bg-white/90'
               }`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="flex justify-between items-start mb-3">
                 <div className={`p-2 rounded-xl ${config.bg}`}>
@@ -125,7 +139,7 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="w-2/3 h-full">
+      <div className="w-2/3 h-full animate-fade-in-up" style={{ animationDelay: '200ms' }}>
         {selectedOrder ? (
           <div className="glass-panel h-full rounded-3xl p-6 overflow-y-auto flex flex-col relative custom-scrollbar">
             
@@ -178,9 +192,9 @@ export default function Dashboard() {
                   <h4 className="font-bold text-red-900">Delivery Failed</h4>
                   <p className="text-sm text-red-700">We couldn't complete the delivery. Please choose a new slot.</p>
                 </div>
-                <button onClick={handleReschedule} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-colors">
+                <Button isLoading={rescheduling} onClick={handleReschedule} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-colors hover:scale-[1.02]">
                   Reschedule Order
-                </button>
+                </Button>
               </div>
             )}
             

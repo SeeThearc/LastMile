@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ArrowRight } from 'lucide-react';
+import Button from '../components/Button';
+import { toast } from 'react-hot-toast';
 
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: 'POST',
@@ -19,12 +23,15 @@ export default function Register() {
       });
       const data = await res.json();
       if (res.ok) {
+        toast.success('Registration successful! Please login.');
         navigate('/login');
       } else {
-        alert(data.error || 'Registration failed');
+        toast.error(data.error || 'Registration failed');
       }
-    } catch (err) {
-      alert('Network error');
+    } catch (err: any) {
+      toast.error(err.message || 'Network error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,13 +97,14 @@ export default function Register() {
               />
             </div>
             
-            <button 
+            <Button 
+              isLoading={loading}
               type="submit" 
-              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center group mt-2"
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center group mt-2 hover:scale-[1.02] active:scale-95"
             >
-              <span>Create Account</span>
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </button>
+              Create Account
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </form>
           
           <div className="mt-8 text-center text-sm text-slate-500">

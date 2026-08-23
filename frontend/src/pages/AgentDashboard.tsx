@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Truck, CheckCircle2, AlertTriangle, Navigation } from 'lucide-react';
+﻿import { useState, useEffect } from 'react';
+import { Truck, CheckCircle2, Navigation } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import Button from '../components/Button';
 
 export default function AgentDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -8,17 +10,20 @@ export default function AgentDashboard() {
   const [failingId, setFailingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const fetchAssignedOrders = async () => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/agents/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
-      if (res.ok) setOrders(data.orders);
-    } catch (err) {
-      console.error(err);
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.orders);
+      }
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -29,6 +34,7 @@ export default function AgentDashboard() {
   }, []);
 
   const updateStatus = async (orderId: string, status: string, note?: string) => {
+    setUpdatingId(orderId);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/agents/orders/${orderId}/status`, {
@@ -43,80 +49,74 @@ export default function AgentDashboard() {
         setFailingId(null);
         setFailureNote('');
         fetchAssignedOrders();
+        toast.success(`Order marked as ${status}`);
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to update status');
+        toast.error(data.error || 'Failed to update status');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      toast.error('Network error');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   const getNextStatus = (current: string) => {
-    switch (current) {
-      case 'ASSIGNED': return { next: 'PICKED_UP', label: 'Mark as Picked Up' };
-      case 'PICKED_UP': return { next: 'IN_TRANSIT', label: 'Start Transit' };
-      case 'IN_TRANSIT': return { next: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' };
-      case 'OUT_FOR_DELIVERY': return { next: 'DELIVERED', label: 'Complete Delivery' };
-      default: return null;
-    }
+    if (current === 'ASSIGNED') return { label: 'Mark Picked Up', next: 'PICKED_UP' };
+    if (current === 'PICKED_UP') return { label: 'Start Delivery', next: 'IN_TRANSIT' };
+    if (current === 'IN_TRANSIT') return { label: 'Mark Delivered', next: 'DELIVERED' };
+    return null;
   };
 
-  const displayedOrders = activeTab === 'active' 
-    ? orders.filter(o => !['DELIVERED', 'FAILED', 'RESCHEDULED'].includes(o.status))
-    : orders.filter(o => ['DELIVERED', 'FAILED', 'RESCHEDULED'].includes(o.status));
+  const displayedOrders = orders.filter(o => 
+    activeTab === 'active' 
+      ? ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(o.status)
+      : ['DELIVERED', 'FAILED'].includes(o.status)
+  );
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-24">
-      <div className="bg-slate-900 text-white p-6 rounded-b-3xl shadow-lg mb-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold flex items-center">
-            <Truck className="w-6 h-6 mr-3 text-brand-400" />
-            Driver App
-          </h1>
-          <button 
-            onClick={() => {
-              localStorage.clear();
-              window.location.href = '/login';
-            }}
-            className="text-xs font-bold text-red-400 bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20 transition-colors"
-          >
-            Logout
-          </button>
+    <div className="max-w-2xl mx-auto h-full flex flex-col">
+      <div className="flex items-center space-x-3 mb-6 animate-fade-in-up">
+        <div className="p-3 bg-brand-500 rounded-2xl shadow-lg shadow-brand-500/20">
+          <Truck className="w-6 h-6 text-white" />
         </div>
-        
-        <div className="flex bg-slate-800 rounded-full p-1 mt-6">
-          <button 
-            onClick={() => setActiveTab('active')}
-            className={`flex-1 py-2 text-sm font-bold rounded-full transition-colors ${activeTab === 'active' ? 'bg-brand-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
-          >
-            Active
-          </button>
-          <button 
-            onClick={() => setActiveTab('past')}
-            className={`flex-1 py-2 text-sm font-bold rounded-full transition-colors ${activeTab === 'past' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
-          >
-            History
-          </button>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Deliveries</h1>
+          <p className="text-sm text-slate-500 font-medium">Manage your assigned tasks</p>
         </div>
       </div>
 
-      <div className="px-4 space-y-4">
+      <div className="flex bg-slate-200/50 p-1 rounded-full mb-6 animate-fade-in-up">
+        <button 
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 py-2 text-sm font-bold rounded-full transition-all duration-300 ${activeTab === 'active' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500'}`}
+        >
+          Active Tasks
+        </button>
+        <button 
+          onClick={() => setActiveTab('past')}
+          className={`flex-1 py-2 text-sm font-bold rounded-full transition-all duration-300 ${activeTab === 'past' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
+        >
+          Past Deliveries
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-4">
         {loading ? (
-          <div className="text-center text-slate-500 py-8">Loading tasks...</div>
+          <div className="text-center text-slate-500 py-8 animate-fade-in-up">Loading tasks...</div>
         ) : displayedOrders.length === 0 ? (
-          <div className="glass p-8 rounded-3xl text-center text-slate-500 border border-slate-200">
+          <div className="glass p-8 rounded-3xl text-center text-slate-500 border border-slate-200 animate-fade-in-up">
             <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
             <p>{activeTab === 'active' ? 'You have no active orders assigned.' : 'No past deliveries.'}</p>
           </div>
         ) : (
-          displayedOrders.map(order => {
+          displayedOrders.map((order, index) => {
             const nextAction = getNextStatus(order.status);
             const isFailing = failingId === order.id;
             const isExpanded = expandedOrderId === order.id;
 
             return (
-              <div key={order.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+              <div key={order.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in-up transition-all duration-300 hover:shadow-md hover:-translate-y-0.5" style={{ animationDelay: `${index * 50}ms` }}>
                 <div 
                   onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
                   className="p-5 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
@@ -130,91 +130,77 @@ export default function AgentDashboard() {
 
                   <div className="space-y-3 relative before:absolute before:inset-y-3 before:left-2.5 before:w-0.5 before:bg-slate-200">
                     <div className="flex items-start gap-3 relative z-10">
-                      <div className="w-5 h-5 bg-white border-4 border-slate-800 rounded-full flex-shrink-0 mt-0.5" />
+                      <div className="w-5 h-5 rounded-full bg-slate-100 border-2 border-white flex-shrink-0 mt-0.5 flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-slate-300" />
+                      </div>
                       <div>
-                        <div className="text-xs font-semibold text-slate-500 uppercase">Pickup</div>
-                        <div className="text-sm font-medium text-slate-900">{order.pickupAddress}</div>
+                        <p className="text-xs font-bold text-slate-400 uppercase">Pickup</p>
+                        <p className="text-sm font-semibold text-slate-800">{order.pickupAddress}</p>
                       </div>
                     </div>
+                    
                     <div className="flex items-start gap-3 relative z-10">
-                      <div className="w-5 h-5 bg-white border-4 border-brand-500 rounded-full flex-shrink-0 mt-0.5" />
+                      <div className="w-5 h-5 rounded-full bg-brand-100 border-2 border-white flex-shrink-0 mt-0.5 flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-brand-500" />
+                      </div>
                       <div>
-                        <div className="text-xs font-semibold text-slate-500 uppercase">Drop</div>
-                        <div className="text-sm font-medium text-slate-900">{order.dropAddress}</div>
+                        <p className="text-xs font-bold text-slate-400 uppercase">Dropoff</p>
+                        <p className="text-sm font-semibold text-slate-800">{order.dropAddress}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {isExpanded && (
-                  <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 grid grid-cols-2 gap-4 text-sm animate-in slide-in-from-top-2">
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-500 uppercase">Weight</span>
-                      <span className="font-medium text-slate-900">{order.actualWeight} kg</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-500 uppercase">Payment</span>
-                      <span className="font-medium text-slate-900">{order.paymentType}</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-500 uppercase">Charge</span>
-                      <span className="font-medium text-slate-900">₹{order.totalCharge}</span>
-                    </div>
-                    <div>
-                      <span className="block text-xs font-semibold text-slate-500 uppercase">Dimensions</span>
-                      <span className="font-medium text-slate-900">{order.length}x{order.breadth}x{order.height}</span>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'active' && (
-                  <div className="p-4 bg-white space-y-3">
-                  {nextAction && !isFailing && (
-                    <>
-                      <button 
-                        onClick={() => updateStatus(order.id, nextAction.next)}
-                        className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md flex justify-center items-center gap-2 active:scale-95 transition-all"
-                      >
-                        <Navigation className="w-4 h-4" />
-                        {nextAction.label}
-                      </button>
-                      <button 
-                        onClick={() => setFailingId(order.id)}
-                        className="w-full py-3 bg-white text-red-500 font-bold rounded-xl border border-red-100 flex justify-center items-center gap-2 active:scale-95 transition-all"
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        Report Issue
-                      </button>
-                    </>
-                  )}
-
-                  {isFailing && (
-                    <div className="animate-in fade-in slide-in-from-top-2">
-                      <textarea
-                        value={failureNote}
-                        onChange={(e) => setFailureNote(e.target.value)}
-                        placeholder="Explain why delivery failed..."
-                        className="w-full p-3 rounded-xl border border-red-200 text-sm focus:ring-2 focus:ring-red-500/50 outline-none mb-3"
-                        rows={3}
-                      />
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => setFailingId(null)}
-                          className="flex-1 py-2.5 bg-slate-200 text-slate-700 font-bold rounded-xl"
+                {isExpanded && activeTab === 'active' && (
+                  <div className="p-4 bg-slate-50">
+                    {nextAction && !isFailing && (
+                      <div className="space-y-2">
+                        <Button 
+                          isLoading={updatingId === order.id}
+                          onClick={() => updateStatus(order.id, nextAction.next)}
+                          className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white"
                         >
-                          Cancel
-                        </button>
+                          <Navigation className="w-4 h-4" />
+                          {nextAction.label}
+                        </Button>
                         <button 
-                          onClick={() => updateStatus(order.id, 'FAILED', failureNote)}
-                          disabled={!failureNote.trim()}
-                          className="flex-1 py-2.5 bg-red-500 text-white font-bold rounded-xl disabled:opacity-50"
+                          onClick={() => setFailingId(order.id)}
+                          className="w-full py-2 text-sm text-slate-400 font-semibold hover:text-red-500 transition-colors"
                         >
-                          Confirm Fail
+                          Report Issue / Mark Failed
                         </button>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+
+                    {isFailing && (
+                      <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                        <label className="block text-xs font-bold text-red-800 mb-2">Failure Reason</label>
+                        <textarea
+                          className="w-full bg-white rounded-lg border border-red-200 p-2 text-sm mb-3 focus:outline-none focus:border-red-400 transition-colors"
+                          rows={2}
+                          placeholder="e.g. Customer unavailable, Address not found"
+                          value={failureNote}
+                          onChange={e => setFailureNote(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => { setFailingId(null); setFailureNote(''); }}
+                            className="flex-1 py-2.5 bg-white text-slate-600 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <Button 
+                            isLoading={updatingId === order.id}
+                            onClick={() => updateStatus(order.id, 'FAILED', failureNote)}
+                            disabled={!failureNote.trim()}
+                            className="flex-1 py-2.5 bg-red-500 text-white"
+                          >
+                            Confirm Fail
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             );

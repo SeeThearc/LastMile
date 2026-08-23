@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ArrowRight } from 'lucide-react';
+import Button from '../components/Button';
+import { toast } from 'react-hot-toast';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: 'POST',
@@ -29,10 +33,12 @@ export default function Login() {
           navigate('/dashboard');
         }
       } else {
-        alert(data.error || 'Login failed');
+        toast.error(data.error || 'Login failed');
       }
-    } catch (err) {
-      alert('Network error');
+    } catch (err: any) {
+      toast.error(err.message || 'Network Error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,13 +81,14 @@ export default function Login() {
               />
             </div>
             
-            <button 
+            <Button 
+              isLoading={loading}
               type="submit" 
-              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center group"
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center group hover:scale-[1.02] active:scale-95"
             >
-              <span>Sign In</span>
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </button>
+              Sign In
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </form>
           
           <div className="mt-8 text-center text-sm text-slate-500">

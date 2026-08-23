@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Shield, Settings, Users, Package, RefreshCw, Zap, MapPin, Plus, DollarSign, PlusCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import Button from '../components/Button';
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<'orders' | 'fleet' | 'config'>('orders');
   const [data, setData] = useState<any>({ orders: [], agents: [], zones: [], ratecards: [], etas: [], areas: [], customers: [] });
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const [filterStatus, setFilterStatus] = useState('');
   const [filterZone, setFilterZone] = useState('');
@@ -20,29 +23,30 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [oRes, aRes, zRes, rRes, eRes, areaRes, custRes] = await Promise.all([
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [ordersRes, agentsRes, zonesRes, ratesRes, areasRes, etasRes, customersRes] = await Promise.all([
         fetch(`${import.meta.env.VITE_API_URL}/admin/orders`, { headers }),
         fetch(`${import.meta.env.VITE_API_URL}/admin/agents`, { headers }),
         fetch(`${import.meta.env.VITE_API_URL}/admin/zones`, { headers }),
         fetch(`${import.meta.env.VITE_API_URL}/admin/ratecards`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL}/admin/etas`, { headers }),
         fetch(`${import.meta.env.VITE_API_URL}/admin/areas`, { headers }),
+        fetch(`${import.meta.env.VITE_API_URL}/admin/etas`, { headers }),
         fetch(`${import.meta.env.VITE_API_URL}/admin/customers`, { headers })
       ]);
       setData({
-        orders: (await oRes.json()).orders || [],
-        agents: (await aRes.json()).agents || [],
-        zones: (await zRes.json()).zones || [],
-        ratecards: (await rRes.json()).rateCards || [],
-        etas: (await eRes.json()).etas || [],
-        areas: (await areaRes.json()).areas || [],
-        customers: (await custRes.json()).customers || [],
+        orders: await ordersRes.json(),
+        agents: await agentsRes.json(),
+        zones: await zonesRes.json(),
+        ratecards: await ratesRes.json(),
+        areas: await areasRes.json(),
+        etas: await etasRes.json(),
+        customers: await customersRes.json()
       });
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -50,7 +54,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const req = async (url: string, method: string, body: any) => {
+  const req = async (url: string, method: string, body: any, successMsg: string) => {
     const token = localStorage.getItem('token');
     const res = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
       method,
@@ -61,78 +65,90 @@ export default function AdminDashboard() {
       const e = await res.json();
       throw new Error(e.error || 'Request failed');
     }
-    return res.json();
+    toast.success(successMsg);
   };
 
   const handleAutoAssign = async (id: string) => {
+    setUpdating(`assign-${id}`);
+    const token = localStorage.getItem('token');
     try {
-      const resData = await req(`/admin/orders/${id}/auto-assign`, 'POST', {});
-      alert(`Assigned! Reason: ${resData.explanation}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/orders/${id}/auto-assign`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      toast.success(`Assigned! Reason: ${data.explanation}`);
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleForceStatus = async (id: string, status: string) => {
     const note = prompt('Enter reason for force override:');
     if (!note) return;
+    setUpdating(`status-${id}`);
     try {
-      await req(`/admin/orders/${id}/status`, 'PUT', { status, note });
+      await req(`/admin/orders/${id}/status`, 'PUT', { status, note }, 'Status overridden');
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleCreateAgent = async (e: any) => {
     e.preventDefault();
+    setUpdating('agent');
     try {
-      await req('/admin/agents', 'POST', newAgent);
+      await req('/admin/agents', 'POST', newAgent, 'Agent created successfully');
       setNewAgent({ name: '', email: '', password: '' });
-      alert('Agent created successfully!');
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleCreateZone = async (e: any) => {
     e.preventDefault();
+    setUpdating('zone');
     try {
-      await req('/admin/zones', 'POST', newZone);
+      await req('/admin/zones', 'POST', newZone, 'Zone created successfully');
       setNewZone({ name: '' });
-      alert('Zone created successfully!');
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleCreateArea = async (e: any) => {
     e.preventDefault();
+    setUpdating('area');
     try {
-      await req('/admin/areas', 'POST', newArea);
+      await req('/admin/areas', 'POST', newArea, 'Area mapped successfully');
       setNewArea({ name: '', pincode: '', zoneId: '' });
-      alert('Area assigned to zone successfully!');
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleCreateRate = async (e: any) => {
     e.preventDefault();
+    setUpdating('rate');
     try {
-      await req('/admin/ratecards', 'POST', {
-        ...newRate,
-        isIntraZone: newRate.isIntraZone === 'true',
-        ratePerKg: Number(newRate.ratePerKg),
-        codSurcharge: Number(newRate.codSurcharge)
-      });
-      alert('Rate card added!');
+      await req('/admin/ratecards', 'POST', { ...newRate, isIntraZone: newRate.isIntraZone === 'true' }, 'Rate card configured successfully');
+      setNewRate({ zoneId: '', orderType: 'B2C', isIntraZone: 'true', ratePerKg: 0, codSurcharge: 0 });
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const handleCreateOrder = async (e: any) => {
     e.preventDefault();
+    setUpdating('order');
     try {
-      await req('/admin/orders', 'POST', newOrder);
-      alert('Order created on behalf of customer!');
+      await req('/admin/orders', 'POST', newOrder, 'Order created successfully');
       setShowCreateModal(false);
       fetchAll();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUpdating(null); }
   };
 
   const getWorkload = (agentId: string) => {
@@ -270,7 +286,7 @@ export default function AdminDashboard() {
                 <h3 className="font-bold text-slate-800 mb-4 flex items-center"><MapPin className="w-5 h-5 mr-2 text-brand-500"/> Zones</h3>
                 <form onSubmit={handleCreateZone} className="flex gap-2 mb-4">
                   <input required type="text" placeholder="New Zone Name" className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm" value={newZone.name} onChange={e => setNewZone({name: e.target.value})} />
-                  <button type="submit" className="bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600"><Plus className="w-4 h-4"/></button>
+                  <Button isLoading={updating === 'zone'} type="submit" className="bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600"><Plus className="w-4 h-4"/></Button>
                 </form>
                 <ul className="text-sm space-y-2 max-h-32 overflow-y-auto">
                   {data.zones.map((z: any) => (
@@ -290,7 +306,7 @@ export default function AdminDashboard() {
                     <option value="">Select Zone...</option>
                     {data.zones.map((z:any) => <option key={z.id} value={z.id}>{z.name}</option>)}
                   </select>
-                  <button type="submit" className="col-span-2 bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600 font-bold">Assign Area</button>
+                  <Button isLoading={updating === 'area'} type="submit" className="col-span-2 bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600 font-bold">Assign Area</Button>
                 </form>
               </div>
             </div>
@@ -312,7 +328,7 @@ export default function AdminDashboard() {
                 </select>
                 <input required type="number" placeholder="Rate/Kg" className="px-3 py-2 rounded-lg border border-slate-200" value={newRate.ratePerKg || ''} onChange={e => setNewRate({...newRate, ratePerKg: Number(e.target.value)})} />
                 <input type="number" placeholder="COD Surcharge" className="px-3 py-2 rounded-lg border border-slate-200" value={newRate.codSurcharge || ''} onChange={e => setNewRate({...newRate, codSurcharge: Number(e.target.value)})} />
-                <button type="submit" className="col-span-2 bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600 font-bold">Add Rate Card</button>
+                <Button isLoading={updating === 'rate'} type="submit" className="col-span-2 bg-brand-500 text-white px-3 py-2 rounded-lg hover:bg-brand-600 font-bold">Add Rate Card</Button>
               </form>
               <ul className="text-xs space-y-2 max-h-48 overflow-y-auto">
                 {data.ratecards.map((r: any) => (
@@ -334,7 +350,7 @@ export default function AdminDashboard() {
                 <input required type="text" placeholder="Name" className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm" value={newAgent.name} onChange={e => setNewAgent({...newAgent, name: e.target.value})} />
                 <input required type="email" placeholder="Email" className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm" value={newAgent.email} onChange={e => setNewAgent({...newAgent, email: e.target.value})} />
                 <input required type="password" placeholder="Password" className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm" value={newAgent.password} onChange={e => setNewAgent({...newAgent, password: e.target.value})} />
-                <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 font-bold text-sm whitespace-nowrap">Create Agent</button>
+                <Button isLoading={updating === 'agent'} type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 font-bold text-sm whitespace-nowrap">Create Agent</Button>
               </form>
             </div>
 
@@ -411,7 +427,7 @@ export default function AdminDashboard() {
 
               <div className="flex gap-2 pt-4">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl">Cancel</button>
-                <button type="submit" className="flex-1 py-3 bg-brand-500 text-white font-bold rounded-xl shadow">Create Order</button>
+                <Button isLoading={updating === 'order'} type="submit" className="flex-1 py-3 bg-brand-500 text-white font-bold rounded-xl shadow">Create Order</Button>
               </div>
             </form>
           </div>
