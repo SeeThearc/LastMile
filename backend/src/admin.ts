@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+﻿import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "./prisma";
 import { requireAuth, requireAdmin } from "./middleware";
@@ -175,7 +175,7 @@ router.post("/orders", async (req: Request, res: Response) => {
     }
 
     const trackingId = await generateTrackingId();
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       const newOrder = await tx.order.create({
         data: {
           id: trackingId,
@@ -315,7 +315,7 @@ router.post("/orders/:id/assign", async (req: Request, res: Response) => {
     if (!agent) return res.status(404).json({ error: "Agent not found" });
     if (agent.availability !== "AVAILABLE") return res.status(400).json({ error: "Agent is not AVAILABLE" });
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: { agentId: agent.id, status: "ASSIGNED" }
@@ -385,13 +385,13 @@ router.post("/orders/:id/auto-assign", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "No available agents found in any zone" });
     }
 
-    candidates.sort((a, b) => a.agentOrders.length - b.agentOrders.length);
+    candidates.sort((a: any, b: any) => a.agentOrders.length - b.agentOrders.length);
     const selectedAgent = candidates[0];
 
     const isSameZone = selectedAgent.currentZoneId === order.pickupZoneId;
     const reason = `Selected agent ${selectedAgent.name} because they ${isSameZone ? 'are in the pickup zone' : 'are the only available agent'} with lowest workload (${selectedAgent.agentOrders.length} active orders).`;
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: { agentId: selectedAgent.id, status: "ASSIGNED" }
@@ -430,7 +430,7 @@ router.put("/orders/:id/status", async (req: Request, res: Response) => {
     const order = await prisma.order.findUnique({ where: { id: req.params.id } });
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: { status }

@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+﻿import { Router, Request, Response } from "express";
 import prisma from "./prisma";
 import { requireAuth, requireAgent } from "./middleware";
 import { orderEvents } from "./notifications";
@@ -81,7 +81,7 @@ router.put("/orders/:id/status", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "A failure reason (note) is required when marking an order as FAILED" });
     }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: { status }

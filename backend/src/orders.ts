@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+﻿import { Router, Request, Response } from "express";
 import prisma from "./prisma";
 import { requireAuth } from "./middleware";
 import { calculatePrice, generateTrackingId } from "./utils";
@@ -58,7 +58,7 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     const trackingId = await generateTrackingId();
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       const newOrder = await tx.order.create({
         data: {
           id: trackingId,
@@ -151,7 +151,7 @@ router.post("/:id/reschedule", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Only FAILED orders can be rescheduled" });
     }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: {
