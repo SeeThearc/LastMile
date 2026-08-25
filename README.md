@@ -1,5 +1,7 @@
 # LastMile ? Last-Mile Delivery Tracker
 
+(SEED CREDENTIALS AT THE END)
+
 A production-grade, full-stack last-mile delivery management platform built with React, Node.js/Express, Prisma 6, and PostgreSQL. Features real-time order tracking, zone-based rate calculation, intelligent agent auto-assignment, immutable audit trails, and live email notifications.
 
 ---
