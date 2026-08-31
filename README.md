@@ -301,9 +301,11 @@ totalCharge  = baseCharge + codSurcharge
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | admin@lastmile.com | admin123 |
-| Agent | agent@lastmile.com | agent123 |
-| Customer | customer@lastmile.com | customer123 |
+| Admin | admin@lastmile.com | Admin@123 |
+| Agent | agent1@lastmile.com | Agent@123 |
+| Agent | agent2@lastmile.com | Agent@123 |
+| Agent | agent3@lastmile.com | Agent@123 |
+| Customer | customer@lastmile.com | Customer@123 |
 
 ---
 
